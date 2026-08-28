@@ -5,8 +5,7 @@
 //  Single-file SwiftUI app: models, networking, MJPEG decoding, AI overlay,
 //  drive/servo controls, telemetry dashboard, snapshot-to-Photos, detection
 //  history log, haptic alerts, and settings — all in one file per request.
-//  Split back into separate files later if the project grows; every type
-//  below is marked with `// MARK:` so Xcode's jump bar still organizes it.
+//  iOS 16+ compatible (no iOS-17-only APIs used anywhere in this file).
 //
 import SwiftUI
 import UIKit
@@ -45,8 +44,8 @@ struct RobotTelemetry: Codable {
     let LT: [Int]
     let GY: GyroReading
     let TIPPED: Int
-    let BATT: Double?          // volts — new battery telemetry field
-    let MODE: String?          // "manual" | "patrol" — new autonomous mode field
+    let BATT: Double?
+    let MODE: String?
 
     var isTipped: Bool { TIPPED != 0 }
     var ultrasonicValid: Bool { US > 0 }
@@ -74,7 +73,6 @@ struct Heartbeat: Codable {
     let clients: Int
 }
 
-/// One entry in the on-screen detection history log.
 struct DetectionLogEntry: Identifiable {
     let id = UUID()
     let timestamp: Date
@@ -102,7 +100,7 @@ enum InboundMessage {
     }
 }
 
-// MARK: - Outbound commands (matches the Uno's expanded N=101/900/901/902 set)
+// MARK: - Outbound commands
 
 struct RobotCommand: Codable {
     var H: Int
@@ -231,7 +229,7 @@ final class RobotConnectionManager: NSObject, ObservableObject {
             let wasTipped = latestTelemetry?.isTipped ?? false
             latestTelemetry = telemetry
             if telemetry.isTipped && !wasTipped {
-                hapticGenerator.notificationOccurred(.error) // new tip event -> haptic alert
+                hapticGenerator.notificationOccurred(.error)
             }
         case .detections(let frame):
             latestDetections = frame.objects
@@ -259,8 +257,6 @@ final class RobotConnectionManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: Sending
-
     func send(_ command: RobotCommand) {
         guard let data = try? JSONEncoder().encode(command),
               let text = String(data: data, encoding: .utf8) else { return }
@@ -277,7 +273,6 @@ final class RobotConnectionManager: NSObject, ObservableObject {
     func setReminderMinutes(_ minutes: Int) { send(RobotCommandFactory.setReminderMinutes(minutes)) }
     func testBuzzer(beeps: Int = 2) { send(RobotCommandFactory.buzzerTest(beeps: beeps)) }
 
-    /// Local-only command intercepted by the ESP32 (not forwarded to the Uno).
     func requestSnapshotSave() {
         webSocketTask?.send(.string(#"{"LOCAL":"snapshot"}"#)) { _ in }
     }
@@ -485,8 +480,6 @@ struct CameraStreamView: View {
         }
     }
 
-    /// Saves the currently displayed frame to the Photos library — useful
-    /// for a caregiver to keep a timestamped record of what the robot saw.
     private func saveCurrentFrame() {
         guard let image = loader.currentFrame else { return }
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
@@ -714,7 +707,7 @@ struct TelemetryPanelView: View {
 }
 
 // ============================================================================
-// MARK: - Detection History Log
+// MARK: - Detection History Log (iOS 16-safe empty state, no ContentUnavailableView)
 // ============================================================================
 
 struct DetectionHistoryView: View {
@@ -735,18 +728,23 @@ struct DetectionHistoryView: View {
             }
         }
         .navigationTitle("Detection History")
-         .overlay {
+        .overlay {
             if connection.detectionHistory.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "eye.slash")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.secondary)
-                    Text("No detections yet")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
+                emptyStateView
             }
         }
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "eye.slash")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text("No detections yet")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+    }
 
     private func icon(for label: String) -> String {
         switch label {
@@ -844,8 +842,4 @@ struct SettingsView: View {
             .onAppear { hostText = connection.robotHost }
         }
     }
-}
-
-#Preview {
-    ContentView().environmentObject(RobotConnectionManager())
 }
