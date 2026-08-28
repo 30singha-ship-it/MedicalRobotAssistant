@@ -735,12 +735,18 @@ struct DetectionHistoryView: View {
             }
         }
         .navigationTitle("Detection History")
-        .overlay {
+         .overlay {
             if connection.detectionHistory.isEmpty {
-                ContentUnavailableView("No detections yet", systemImage: "eye.slash")
+                VStack(spacing: 8) {
+                    Image(systemName: "eye.slash")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.secondary)
+                    Text("No detections yet")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-    }
 
     private func icon(for label: String) -> String {
         switch label {
