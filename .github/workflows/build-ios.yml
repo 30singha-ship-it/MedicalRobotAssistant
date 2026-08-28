@@ -1,25 +1,20 @@
 # ============================================================================
-#  build-ios.yml — GitHub Actions workflow
-#  IMPORTANT: this file must live at  .github/workflows/build-ios.yml
-#  in your repo (GitHub only discovers workflows in that exact folder).
-#  Create the folders manually in the GitHub web UI when uploading if needed.
+#  build-ios.yml — GitHub Actions workflow (v2 — fixes "future project format")
+#  Path in repo: .github/workflows/build-ios.yml  (replace the old file)
 # ============================================================================
-#  What this does, end to end, on GitHub's free macOS runner:
-#    1. Checks out your repo (project.yml + Sources/*.swift)
-#    2. Installs XcodeGen and generates a real .xcodeproj from project.yml
-#    3. Builds an UNSIGNED .xcarchive (no certificate needed at all)
-#    4. Packages it into a standard .ipa
-#    5. Uploads the .ipa as a downloadable build artifact
-#
-#  You then download that .ipa from the finished workflow run and hand it to
-#  SideStore or AltStore, which sign it with your free Apple ID on install.
+#  Fix applied: GitHub's macOS runners ship several Xcode versions side by
+#  side, and the default one selected can be older than what XcodeGen's
+#  generated project format requires ("cannot be opened because it is in a
+#  future Xcode project file format"). The new "Select latest Xcode" step
+#  switches xcode-select to the newest installed Xcode before building, so
+#  the project format is always compatible.
 # ============================================================================
 name: Build iOS IPA (unsigned)
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: {}   # lets you click "Run workflow" manually on GitHub
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -28,6 +23,14 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Select latest available Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show selected Xcode version (sanity check)
+        run: xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
