@@ -1,0 +1,50 @@
+# ============================================================================
+#  project.yml — XcodeGen spec for MedicalRobotAssistant
+# ============================================================================
+#  This one file replaces the Xcode project you'd normally create by hand.
+#  XcodeGen (run automatically inside the free GitHub Actions macOS runner)
+#  turns this YAML into a real .xcodeproj — you never touch Xcode yourself.
+#
+#  Repo layout this expects:
+#    /project.yml                                  <- this file, repo root
+#    /Sources/MedicalRobotAssistant_ALLINONE.swift  <- the app code
+#    /.github/workflows/build-ios.yml               <- the CI workflow
+# ============================================================================
+name: MedicalRobotAssistant
+
+options:
+  bundleIdPrefix: com.medassist
+  deploymentTarget:
+    iOS: "16.0"
+
+targets:
+  MedicalRobotAssistant:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.medassist.robotapp
+        PRODUCT_NAME: MedicalRobotAssistant
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"          # iPhone only
+        SWIFT_VERSION: "5.0"
+        # Unsigned build — AltStore/SideStore does the real signing with your
+        # free Apple ID at install time, so CI never needs a certificate.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+    info:
+      path: Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # Required so the app can reach the robot's plain http/ws endpoints
+        # (no TLS on the ESP32's embedded server).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        # Required for the CameraStreamView snapshot-to-Photos button.
+        NSPhotoLibraryAddUsageDescription: "Used to save snapshots captured from the robot's live camera feed."
