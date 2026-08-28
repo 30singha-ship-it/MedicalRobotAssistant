@@ -1,0 +1,61 @@
+# ============================================================================
+#  build-ios.yml — GitHub Actions workflow
+#  IMPORTANT: this file must live at  .github/workflows/build-ios.yml
+#  in your repo (GitHub only discovers workflows in that exact folder).
+#  Create the folders manually in the GitHub web UI when uploading if needed.
+# ============================================================================
+#  What this does, end to end, on GitHub's free macOS runner:
+#    1. Checks out your repo (project.yml + Sources/*.swift)
+#    2. Installs XcodeGen and generates a real .xcodeproj from project.yml
+#    3. Builds an UNSIGNED .xcarchive (no certificate needed at all)
+#    4. Packages it into a standard .ipa
+#    5. Uploads the .ipa as a downloadable build artifact
+#
+#  You then download that .ipa from the finished workflow run and hand it to
+#  SideStore or AltStore, which sign it with your free Apple ID on install.
+# ============================================================================
+name: Build iOS IPA (unsigned)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}   # lets you click "Run workflow" manually on GitHub
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project from project.yml
+        run: xcodegen generate
+
+      - name: Build unsigned .xcarchive
+        run: |
+          xcodebuild \
+            -project MedicalRobotAssistant.xcodeproj \
+            -scheme MedicalRobotAssistant \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/MedicalRobotAssistant.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            archive
+
+      - name: Package .ipa (Payload/*.app zipped)
+        run: |
+          mkdir -p build/Payload
+          cp -r build/MedicalRobotAssistant.xcarchive/Products/Applications/MedicalRobotAssistant.app \
+                build/Payload/
+          cd build && zip -r ../MedicalRobotAssistant.ipa Payload
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedicalRobotAssistant-ipa
+          path: MedicalRobotAssistant.ipa
